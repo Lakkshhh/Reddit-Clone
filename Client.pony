@@ -52,7 +52,7 @@ actor Client
     _simulator = simulator
     _username = username
     _engine = engine
-    _subreddit_name = subreddit_name
+    // _subreddit_name = subreddit_name
 
   fun keyBuilder(user1: String, user2: String): String =>
     if user1 < user2 then
@@ -70,7 +70,7 @@ actor Client
   be login_result(success: Bool, username: String) =>
     if success then
       _env.out.print("Welcome back, " + username + "!")
-      create_subreddit(_subreddit_name)
+      // create_subreddit(_subreddit_name)
     else
       _env.out.print("Username doesn't exist!")
       register()
@@ -80,7 +80,7 @@ actor Client
     if success then
       _env.out.print("Welcome, " + username + "!")
       // _simulator.subreddit_created(_subreddit_name)
-      create_subreddit(_subreddit_name)
+      // create_subreddit(_subreddit_name)
     else
       _env.out.print("Username already in use! "+ username)
     end
