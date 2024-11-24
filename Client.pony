@@ -120,18 +120,18 @@ actor Client
     end
     _simulator.update_direct_messages_jobCount(0.5)
 
-  // send DM
-  be send_direct_message(otherUser: String, content: String) =>
-    // Check if conversation exists and get
-    var conversation: Conversation = Conversation(_env, _username, otherUser) // Dummy conversation
-    let key: String = conversation.keyBuilder(_username, otherUser)
+  // send DM - not used
+  // be send_direct_message(otherUser: String, content: String) =>
+  //   // Check if conversation exists and get
+  //   var conversation: Conversation = Conversation(_env, _username, otherUser) // Dummy conversation
+  //   let key: String = conversation.keyBuilder(_username, otherUser)
 
-    if _dirMsgs.contains(key) then
-      // Send message to engine
-      _engine.update_conversation(content, _username, otherUser, key, this)
-    else
-      _env.out.print("<send_direct_message>No conversation exists with " + key)
-    end
+  //   if _dirMsgs.contains(key) then
+  //     // Send message to engine
+  //     _engine.update_conversation(content, _username, otherUser, key, this)
+  //   else
+  //     _env.out.print("<send_direct_message>No conversation exists with " + key)
+  //   end
 
   be send_direct_message_Key(key: String, recieverUser: String, content: String) =>
     if has(_dirMsgs, key) then  // _dirMsgs.contains(key)
@@ -192,6 +192,7 @@ actor Client
   be print_num_direct_messages() =>
     _env.out.print("Direct messages for " + _username + ": " + _dirMsgs.size().string())
 
+  // Subsitute for contains() method of Array[String]
   fun has(lis: Array[String], target: String): Bool =>
     for s in lis.values() do
       if s == target then
