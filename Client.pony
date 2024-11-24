@@ -2,6 +2,16 @@ use "collections"
 use "time"
 use "random"
 
+// class Conversation
+//   let _otherUser: String
+//   let _content: Array[String] = Array[String]
+
+//   new create(otherUser: String) =>
+//     _otherUser = otherUser
+
+//   fun addMessage(content: String) =>
+//     _content.push(content + " (from " + _otherUser + ")")
+
 actor Client
   let _env: Env
   let _simulator: ClientSimulator
@@ -42,6 +52,7 @@ actor Client
     _simulator = simulator
     _username = username
     _engine = engine
+    _subreddit_name = subreddit_name
 
   fun keyBuilder(user1: String, user2: String): String =>
     if user1 < user2 then
@@ -58,10 +69,8 @@ actor Client
 
   be login_result(success: Bool, username: String) =>
     if success then
-      // _username = username
-      // _connected = true
       _env.out.print("Welcome back, " + username + "!")
-      // will call a method (get_feed()) here to display the main reddit feed
+      create_subreddit(_subreddit_name)
     else
       _env.out.print("Username doesn't exist!")
       register()
@@ -69,10 +78,9 @@ actor Client
 
   be registration_result(success: Bool, username: String) =>
     if success then
-      // _username = username
-      // _connected = true
       _env.out.print("Welcome, " + username + "!")
-      // will call a method (get_feed()) here to display the main reddit feed
+      // _simulator.subreddit_created(_subreddit_name)
+      create_subreddit(_subreddit_name)
     else
       _env.out.print("Username already in use! "+ username)
     end
@@ -192,6 +200,16 @@ actor Client
     end
     false
 
+  be create_subreddit(subreddit_name: String val) =>
+    _engine.create_subreddit(this, subreddit_name, _username)
+
+  be subreddit_creation_result(success: Bool, subreddit_name: String, subscriber_count: USize) =>
+    if success then
+      _env.out.print("Sub-reddit \"" + subreddit_name + "\" created successfully! Total subscribers: " + subscriber_count.string())
+    else
+      _env.out.print("Sub-reddit \"" + subreddit_name + "\" already exists!")
+    end
+
   
 
   // just writing them down, these behaviors and their logic in the backend still needs to be implemented
@@ -258,6 +276,7 @@ actor ClientSimulator
 
       let username: String = "user" + i.string()
       let client: Client = Client(_env, this, username, _engine)
+      let subreddit_name: String val = recover val "subreddit_" + (i+1).string() end
       client.start()
       _clients.push(client)
     end
@@ -376,9 +395,18 @@ actor ClientSimulator
       client.print_all_dirMsgs()
     end
 
-  // be run_simulation() =>
-    // simulation logic needs to be added
+  // be subreddit_created(subreddit_name: String) =>
+  //   _subreddits.set(subreddit_name)
 
+  // be get_existing_subreddits(client: Client tag) =>
+  //   let subreddits_val: Array[String] val = recover val
+  //     let temp = Array[String]
+  //     for subreddit in _subreddits.values() do
+  //       temp.push(subreddit)
+  //     end
+  //     temp
+  //   end
+  //   client.receive_existing_subreddits(subreddits_val)
 
 actor Main
   new create(env: Env) =>
@@ -387,8 +415,4 @@ actor Main
     // engine.print_usernames()
 
 
-    // simulator.run_simulation()
-
-
-// contain is not working. may have to make manual function...
 

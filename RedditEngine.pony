@@ -39,6 +39,11 @@ class ref Conversation
 //   let _commentMessage: String
 //   let _replies: Array[Comment] = Array[Comment]
 //   let voteCount: I64 = 0
+// class Comment
+//   let _author: String // username
+//   let _commentMessage: String
+//   let _replies: Array[Comment] = Array[Comment]
+//   let voteCount: I64 = 0
 
 // class Post
 //   let _author: String // username
@@ -55,6 +60,8 @@ actor RedditEngine
   let _subscribers: Map[String, Array[String]] = Map[String, Array[String]] // Subreddit, Subscribers
 
   let _direct_messages: Map[String, Conversation ref] = Map[String, Conversation] // authorUser+otherUser, Direct Messages
+  let _subreddits: Map[String, Array[String]] = Map[String, Array[String]]
+  let _subreddit_subscribers: Map[String, USize] = Map[String, USize]
 
   be print_all_data() =>
     var result: String = "Usernames: \n"
@@ -75,8 +82,6 @@ actor RedditEngine
     for conversation in _direct_messages.values() do
       conversation.printConversation()
     end
-
-
 
   new create(env: Env) =>
     _env = env
@@ -100,6 +105,20 @@ actor RedditEngine
       client.registration_result(true, username)
     else
       client.registration_result(false, username)
+    end
+
+  be create_subreddit(client: Client tag, subreddit_name: String val, creator: String) =>
+    if not _subreddits.contains(subreddit_name) then
+      try
+        _subreddits(subreddit_name) = Array[String]
+        _subreddits(subreddit_name)?.push(creator)
+        _subreddit_subscribers(subreddit_name) = 1
+        client.subreddit_creation_result(true, subreddit_name, 1)
+      else
+        client.subreddit_creation_result(false, subreddit_name, 0)
+      end
+    else
+      client.subreddit_creation_result(false, subreddit_name, 0)
     end
 
   be print_usernames() =>
@@ -163,10 +182,34 @@ actor RedditEngine
       conversation.printConversation()
     end
 
-  // one by one gotta implement other methods
+  be print_subreddits() =>
+    for subreddit in _subreddits.keys() do
+      let subscriber_count = _subreddit_subscribers.get_or_else(subreddit, 0)
+      _env.out.print(subreddit + " (Subscribers: " + subscriber_count.string() + ")")
+    end
 
-// actor Main
-//   new create(env: Env) =>
-//     let engine = RedditEngine(env)
-//     let client = Client(env, engine)
-//     client.start()
+  // be join_subreddit(client: Client tag, subreddit_name: String, username: String) =>
+  //   try
+  //     if _subreddits.contains(subreddit_name) then
+  //       if not _subreddits(subreddit_name)?.contains(username) then
+  //         _subreddits(subreddit_name)?.push(username)
+  //         _subreddit_subscribers(subreddit_name) = _subreddit_subscribers.get_or_else(subreddit_name, 0) + 1
+  //         client.join_subreddit_result(true, subreddit_name, _subreddit_subscribers(subreddit_name)?)
+  //       else
+  //         client.join_subreddit_result(false, subreddit_name, _subreddit_subscribers(subreddit_name)?)
+  //       end
+  //     else
+  //       client.join_subreddit_result(false, subreddit_name, 0)
+  //     end
+  //   else
+  //     client.join_subreddit_result(false, subreddit_name, 0)
+  //   end
+
+  // be get_feed(client: Client tag) =>
+  //   for post in _subreddits.values() do
+  //     client.display_post(post)
+  //   end
+
+  // be start_conversation(username: String, otherUser: String, conversation: Conversation) =>
+  //   let otherClient = _accounts(otherUser)
+  //   otherClient.accept_conversation(conversation)
