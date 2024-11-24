@@ -58,6 +58,8 @@ actor RedditEngine
   let _accounts: Map[String, Client] = Map[String, Client]
   // let _subreddits: Map[String, Array[Post]] = Map[String, Array[Post]] // Username, Posts
   let _subscribers: Map[String, Array[String]] = Map[String, Array[String]] // Subreddit, Subscribers
+  let _subreddits: Map[String, Array[String]] = Map[String, Array[String]]
+  let _subreddit_subscribers: Map[String, USize] = Map[String, USize]
 
   let _direct_messages: Map[String, Conversation ref] = Map[String, Conversation] // authorUser+otherUser, Direct Messages
   let _subreddits: Map[String, Array[String]] = Map[String, Array[String]]
@@ -113,6 +115,13 @@ actor RedditEngine
         _subreddits(subreddit_name) = Array[String]
         _subreddits(subreddit_name)?.push(creator)
         _subreddit_subscribers(subreddit_name) = 1
+        
+        if _accounts.contains(creator) then
+          let user_client = _accounts(creator)?
+          user_client.update_subscriptions(subreddit_name)
+        end
+        
+        _env.out.print("Subreddit '" + subreddit_name + "' created by " + creator + "! Total subscribers: 1")
         client.subreddit_creation_result(true, subreddit_name, 1)
       else
         client.subreddit_creation_result(false, subreddit_name, 0)
@@ -188,22 +197,34 @@ actor RedditEngine
       _env.out.print(subreddit + " (Subscribers: " + subscriber_count.string() + ")")
     end
 
-  // be join_subreddit(client: Client tag, subreddit_name: String, username: String) =>
-  //   try
-  //     if _subreddits.contains(subreddit_name) then
-  //       if not _subreddits(subreddit_name)?.contains(username) then
-  //         _subreddits(subreddit_name)?.push(username)
-  //         _subreddit_subscribers(subreddit_name) = _subreddit_subscribers.get_or_else(subreddit_name, 0) + 1
-  //         client.join_subreddit_result(true, subreddit_name, _subreddit_subscribers(subreddit_name)?)
-  //       else
-  //         client.join_subreddit_result(false, subreddit_name, _subreddit_subscribers(subreddit_name)?)
-  //       end
-  //     else
-  //       client.join_subreddit_result(false, subreddit_name, 0)
-  //     end
-  //   else
-  //     client.join_subreddit_result(false, subreddit_name, 0)
-  //   end
+  be join_subreddit(client: Client tag, username: String, subreddit_name: String) =>
+    if _subreddits.contains(subreddit_name) then
+      try
+        let subscribers = _subreddits(subreddit_name)?
+        if not subscribers.contains(username) then
+          subscribers.push(username)
+          _subreddits(subreddit_name) = subscribers
+          
+          let subscriber_count = _subreddit_subscribers.get_or_else(subreddit_name, 0) + 1
+          _subreddit_subscribers(subreddit_name) = subscriber_count
+          
+          if _accounts.contains(username) then
+            let user_client = _accounts(username)?
+            user_client.update_subscriptions(subreddit_name)
+          end
+          
+          _env.out.print(username + " joined '" + subreddit_name + "'. Total subscribers: " + subscriber_count.string())
+          client.join_subreddit_result(true, subreddit_name, subscriber_count)
+        else
+          client.join_subreddit_result(false, subreddit_name, _subreddit_subscribers.get_or_else(subreddit_name, 0))
+        end
+      else
+        client.join_subreddit_result(false, subreddit_name, 0)
+      end
+    else
+      client.join_subreddit_result(false, subreddit_name, 0)
+    end
+
 
   // be get_feed(client: Client tag) =>
   //   for post in _subreddits.values() do
