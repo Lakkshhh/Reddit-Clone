@@ -14,7 +14,7 @@ actor Client
   let _subscriptions: Set[String] = Set[String] // subreddits subscribed to
   var _subreddit_name: String val // user's subreddit - each user only has 1 subreddit and joining other >1 number of subreddits
 
-  var karma: USize = 0 // karma points for all authored posts and comments
+  var _karma: I64 = 0 // karma points for all authored posts and comments
 
   new create(env: Env, simulator: ClientSimulator, username: String, engine: RedditEngine tag, subreddit_name: String) =>
     _env = env
@@ -184,11 +184,13 @@ actor Client
     end
 
   be join_subreddit_result(success: Bool, subreddit_name: String, subscriber_count: USize) =>
-    None
+    _simulator.update_subreddit_joining_jobCount()
 
   be check_and_join_subreddit(subreddit_name: String) =>
     if not _subscriptions.contains(subreddit_name) then
       _engine.join_subreddit(this, _username, subreddit_name)
+    else
+      _simulator.update_subreddit_joining_jobCount()
     end
 
   be update_subscriptions(subreddit_name: String) =>
@@ -203,17 +205,63 @@ actor Client
   be join_subreddit(subreddit_name: String) =>
     _engine.join_subreddit(this, _username, subreddit_name)
 
+  be post_every_subreddit() =>
+    for subreddit_name in _subscriptions.values() do
+      _simulator.increment_totalJobs(1)
+      _engine.client_post(this, _username, subreddit_name, "Hello from " + _username + " in " + subreddit_name)
+    end
+
+  be post_result(success: Bool, subreddit_name: String) =>
+    if success then
+      _env.out.print(_username + " posted in " + subreddit_name)
+    else
+      _env.out.print("<client.post_result>Error posting in " + subreddit_name)
+    end
+    _simulator.update_posting_jobCount()
+
+  be make_comments() =>
+    for subreddit_name in _subscriptions.values() do
+      _simulator.increment_totalJobs(1)
+      _engine.client_comment(this, _username, subreddit_name, "Comment from " + _username + " in " + subreddit_name)
+    end
+
+  be comment_result(success: Bool, subreddit_name: String) =>
+    if success then
+      _env.out.print(_username + " commented in " + subreddit_name)
+    else
+      _env.out.print("<client.comment_result>Error commenting in " + subreddit_name)
+    end
+    _simulator.update_comment_jobCount()
+
+  be upvote_downvote() =>
+    for subreddit_name in _subscriptions.values() do
+      _simulator.increment_totalJobs(1)
+      _engine.client_upvote_downvote(this, _username, subreddit_name)
+    end
+
+  be upvote_downvote_result(success: Bool, subreddit_name: String) =>
+    if success then
+      _env.out.print(_username + " upvoted/downvoted in " + subreddit_name)
+    else
+      _env.out.print("<client.upvote_downvote_result>Error upvoting/downvoting in " + subreddit_name)
+    end
+    _simulator.update_upvote_downvote_jobCount()
+
+  be update_karma(karma: I64) =>
+    _karma = karma
+    _simulator.update_karma_jobCount()
+
   
 
   // Next Steps Layout -
-  
+
 /*
 
   1. Leave subreddits - Client query engine to leave "_engine.leave_subreddit(subreddit_name: String)"
-  2. Each user post in every subreddit subscribed to - for each subreddit subscribed to, user calls "_engine.post(subreddit_name: String, content: String)" (generates post in subreddit)
-  3. Comment under a post - user makes a comment under a posts/comments - "_engine.comment(subreddit_name: String, content: String)" - engine will randomize post/comment to comment under
-  4. Upvote/Downvote posts and comments - user upvotes/downvotes N(simulate multiple at simulator) random posts/comments - "_engine.upvote(subreddit_name: String)" - engine will randomize post/comment to upvote/downvote
-  5. Compute Karama - tally upvotes - downvotes on a post/comment and assign value to post/comment author - "_engine.compute_karma(subreddit_name: String)" - call this after entire simulation is done
+  [DONE] 2. Each user post in every subreddit subscribed to - for each subreddit subscribed to, user calls "_engine.post(subreddit_name: String, _username: String, content: String)" (generates post in subreddit)
+  [DONE] 3. only posts not comments 3. Comment under a post - user makes a comment under a posts/comments for each subreddit - "_engine.comment(subreddit_name: String, content: String)" - engine will randomize post/comment to comment under
+  [DONE] 4. Upvote/Downvote posts and comments - user upvotes/downvotes N(simulate multiple at simulator) random posts/comments - "_engine.upvote(subreddit_name: String)" - engine will randomize post/comment to upvote/downvote
+  [DONE] 5. Compute Karama - tally upvotes - downvotes on a post/comment and assign value to post/comment author - "_engine.compute_karma(subreddit_name: String)" - call this after entire simulation is done
      engine will iterate through al posts/comments and compute karama and update a map of user -> karma. Then iterate through all users and update their karma. - "client(karma: Usize)"
   6. Get feed - get all posts from all subreddits subscribed to - "client.get_feed()"(called from simulator - iterate through all clients and call this method) -
      client will call "_engine.get_feed(subreddit_name: String)" for each subreddit subscribed to and print feed to terminal.
@@ -244,7 +292,7 @@ actor ClientSimulator
     _numDirMsgs = numDirMsgs
     _num_Clients = num_clients
 
-    // Step 1: Register all clients
+    // DM - Step 1: Register all clients
     for i in Range(0, num_clients) do
 
       let username: String = "user" + i.string()
@@ -254,7 +302,7 @@ actor ClientSimulator
       _clients.push(client)
     end
 
-  // Step 1 Check: Register all clients
+  // DM - Step 1 Check: Register all clients
   be update_registration_jobCount() =>
     _jobsDone = _jobsDone + 1
     _env.out.print("Registration jobsDone: " + _jobsDone.string())
@@ -265,27 +313,7 @@ actor ClientSimulator
       create_direct_messages()
     end
 
-  be subreddit_created() =>
-    _created_subreddits = _created_subreddits + 1
-    if _created_subreddits == _num_Clients then
-      //_env.out.print("All subreddits created. Starting join process.")
-      _all_subreddits_created = true
-      start_joining_subreddits()
-    end
-
-    be start_joining_subreddits() =>
-      if _all_subreddits_created then
-        for (i, client) in _clients.pairs() do
-          for j in Range(0, _num_Clients) do
-            if i != j then
-              let subreddit_to_join: String val = recover val "subreddit_" + (j + 1).string() end
-              client.check_and_join_subreddit(subreddit_to_join)
-            end
-          end
-        end
-      end
-
-  // Step 2: Create direct messages
+  // DM - Step 2: Create direct messages
   be create_direct_messages() =>
     // simulation logic needs to be added
     _env.out.print("CREATING DIRECT MESSAGES")
@@ -306,7 +334,7 @@ actor ClientSimulator
       _env.out.print("Error in running direct message simulation " + _clients.size().string())
     end
 
-  // Step 2 Check: Create direct messages
+  // DM - Step 2 Check: Create direct messages
   be update_direct_messages_jobCount(increment: F64) =>
     _jobsDone = _jobsDone + increment
     let total = _num_Clients * _numDirMsgs
@@ -348,7 +376,7 @@ actor ClientSimulator
 
     res
 
-  // Step 3: Send dummy messages
+  // DM - Step 3: Send dummy messages
   be send_dummy_messages() =>
     _env.out.print("SENDING DUMMY MESSAGES")
     for client in _clients.values() do
@@ -359,12 +387,13 @@ actor ClientSimulator
   be increment_totalJobs(increment: USize) =>
     totalJobs = totalJobs + increment
 
-  // Step 3 Check: Send dummy messages
+  // DM - Step 3 Check: Send dummy messages
   be update_dummy_messages_jobCount() =>
     _jobsDone = _jobsDone + 1
     let total = _num_Clients * _numDirMsgs * 2
     _env.out.print("Dummy messages jobsDone: " + _jobsDone.string() + " numDirMsgs(GOAL): " + totalJobs.string())
     if _jobsDone == totalJobs.f64() then
+      totalJobs = 0
       _jobsDone = 0
       _env.out.print("jobsDone Counter set to 0: " + _jobsDone.string())
       // _env.out.print("All dummy messages sent")
@@ -374,10 +403,119 @@ actor ClientSimulator
       create_subreddits()
     end
 
+  // Subreddit - Step 1: Create subreddits
   be create_subreddits() =>
     // _env.out.print("CREATING AND JOINING SUBREDDITS") - isnt printing after engine.print_all_data()
     for client in _clients.values() do
       client.create_subreddit()
+    end
+
+  // Subreddit - Step 1 Check: Create subreddits
+  be subreddit_created() =>
+    _created_subreddits = _created_subreddits + 1
+    if _created_subreddits == _num_Clients then
+      //_env.out.print("All subreddits created. Starting join process.")
+      _all_subreddits_created = true
+      start_joining_subreddits()
+    end
+
+  // Subreddit - Step 2: Join subreddits
+  be start_joining_subreddits() =>
+    if _all_subreddits_created then
+      for (i, client) in _clients.pairs() do
+        for j in Range(0, _num_Clients) do
+          if i != j then
+            increment_totalJobs1()
+            let subreddit_to_join: String val = recover val "subreddit_" + (j + 1).string() end
+            client.check_and_join_subreddit(subreddit_to_join)
+          end
+        end
+      end
+    end
+
+  // Subreddit - Step 2 Check: Join subreddits
+  be update_subreddit_joining_jobCount() =>
+    _jobsDone = _jobsDone + 1
+    if _jobsDone == totalJobs.f64() then
+      _jobsDone = 0
+      totalJobs = 0
+      _env.out.print("All clients joined subreddits")
+      _env.out.print("jobsDone Counter set to: " + _jobsDone.string())
+      _env.out.print("totalJobs Counter set to: " + totalJobs.string())
+      post_every_subreddit()
+    end
+
+  // Subreddit - Step 3: Post in every subreddit
+  be post_every_subreddit() =>
+    for client in _clients.values() do
+      client.post_every_subreddit()
+    end
+
+  // Subreddit - Step 3 Check: Post in every subreddit
+  be update_posting_jobCount() =>
+    _jobsDone = _jobsDone + 1
+    if _jobsDone == totalJobs.f64() then
+      _env.out.print("JobsDone: " + _jobsDone.string())
+      _jobsDone = 0
+      totalJobs = 0
+      _env.out.print("All clients posted in subreddits")
+      _env.out.print("jobsDone Counter set to: " + _jobsDone.string())
+      _env.out.print("totalJobs Counter set to: " + totalJobs.string())
+      make_comments()
+    end
+
+  // Subreddit - Step 4: Make comments
+  be make_comments() =>
+    _env.out.print("MAKING COMMENTS")
+    for client in _clients.values() do
+      client.make_comments()
+    end
+
+  // Subreddit - Step 4 Check: Make comments
+  be update_comment_jobCount() =>
+    _jobsDone = _jobsDone + 1
+    if _jobsDone == totalJobs.f64() then
+      _env.out.print("JobsDone: " + _jobsDone.string())
+      _jobsDone = 0
+      totalJobs = 0
+      _env.out.print("All clients commented in subreddits")
+      _env.out.print("jobsDone Counter set to: " + _jobsDone.string())
+      _env.out.print("totalJobs Counter set to: " + totalJobs.string())
+      upvote_downvote()
+    end
+
+  // Subreddit - Step 5: Upvote/Downvote posts and comments
+  be upvote_downvote() =>
+    _env.out.print("UPVOTING/DOWNVOTING")
+    for client in _clients.values() do
+      client.upvote_downvote()
+    end
+
+  // Subreddit - Step 5 Check: Upvote/Downvote posts and comments
+  be update_upvote_downvote_jobCount() =>
+    _jobsDone = _jobsDone + 1
+    if _jobsDone == totalJobs.f64() then
+      _env.out.print("JobsDone: " + _jobsDone.string())
+      _jobsDone = 0
+      totalJobs = 0
+      _env.out.print("All clients upvoted/downvoted in subreddits")
+      _env.out.print("jobsDone Counter set to: " + _jobsDone.string())
+      _env.out.print("totalJobs Counter set to: " + totalJobs.string())
+
+      compute_karama()
+    end
+
+  be compute_karama() =>
+    _env.out.print("COMPUTING KARMA")
+    _engine.compute_karma()
+
+  be update_karma_jobCount() =>
+    _jobsDone = _jobsDone + 1
+    if _jobsDone == _num_Clients.f64() then
+      _env.out.print("JobsDone: " + _jobsDone.string())
+      _jobsDone = 0
+      _env.out.print("All clients karma computed")
+      _env.out.print("jobsDone Counter set to: " + _jobsDone.string())
     end
 
   be increment_totalJobs1() =>
