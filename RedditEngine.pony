@@ -158,6 +158,10 @@ actor RedditEngine
       client.registration_result(false, username)
     end
 
+  be get_subscriber_count(subreddit_name: String, collector: MetricsCollector tag) =>
+    let count = _subreddit_subcriber_count.get_or_else(subreddit_name, 0)
+    collector.receive_subscriber_count(subreddit_name, count)
+
   be create_subreddit(client: Client tag, subreddit_name: String val, creator: String) =>
     if not _subreddit_subcribers.contains(subreddit_name) then
       try
@@ -403,3 +407,27 @@ actor RedditEngine
     end
     _env.out.print("End of feed")
 
+
+  be leave_subreddit(client: Client tag, username: String, subreddit_name: String) =>
+    if _subreddit_subcribers.contains(subreddit_name) then
+      try
+        let subscribers = _subreddit_subcribers(subreddit_name)?
+        let index = subscribers.find(username)?
+        subscribers.delete(index)?
+        _subreddit_subcribers(subreddit_name) = subscribers
+        
+        let subscriber_count = _subreddit_subcriber_count.get_or_else(subreddit_name, 1) - 1
+        _subreddit_subcriber_count(subreddit_name) = subscriber_count
+        
+        if _accounts.contains(username) then
+          let user_client = _accounts(username)?
+          user_client.remove_subscription(subreddit_name)
+        end
+  
+        client.leave_subreddit_result(true, subreddit_name, subscriber_count)
+      else
+        client.leave_subreddit_result(false, subreddit_name, _subreddit_subcriber_count.get_or_else(subreddit_name, 0))
+      end
+    else
+      client.leave_subreddit_result(false, subreddit_name, 0)
+    end
