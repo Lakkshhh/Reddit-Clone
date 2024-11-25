@@ -39,11 +39,6 @@ class ref Conversation
 //   let _commentMessage: String
 //   let _replies: Array[Comment] = Array[Comment]
 //   let voteCount: I64 = 0
-// class Comment
-//   let _author: String // username
-//   let _commentMessage: String
-//   let _replies: Array[Comment] = Array[Comment]
-//   let voteCount: I64 = 0
 
 // class Post
 //   let _author: String // username
@@ -123,16 +118,6 @@ actor RedditEngine
     else
       client.subreddit_creation_result(false, subreddit_name, 0)
     end
-
-  be print_usernames() =>
-    for username in _usernames.values() do
-      _env.out.print(username)
-    end
-
-  // be get_feed(client: Client tag) =>
-  //   for post in _subreddits.values() do
-  //     client.display_post(post)
-  //   end
 
   be start_conversation(user: String, otherUser: String, key: String, userClient: Client) =>
     
@@ -225,6 +210,3 @@ actor RedditEngine
   //     client.display_post(post)
   //   end
 
-  // be start_conversation(username: String, otherUser: String, conversation: Conversation) =>
-  //   let otherClient = _accounts(otherUser)
-  //   otherClient.accept_conversation(conversation)

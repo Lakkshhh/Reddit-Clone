@@ -2,16 +2,6 @@ use "collections"
 use "time"
 use "random"
 
-// class Conversation
-//   let _otherUser: String
-//   let _content: Array[String] = Array[String]
-
-//   new create(otherUser: String) =>
-//     _otherUser = otherUser
-
-//   fun addMessage(content: String) =>
-//     _content.push(content + " (from " + _otherUser + ")")
-
 actor Client
   let _env: Env
   let _simulator: ClientSimulator
@@ -21,6 +11,13 @@ actor Client
   let _dirMsgsUsers: Array[String] = Array[String]
   let _subscriptions: Set[String] = Set[String]
   var _subreddit_name: String val
+
+  new create(env: Env, simulator: ClientSimulator, username: String, engine: RedditEngine tag, subreddit_name: String) =>
+    _env = env
+    _simulator = simulator
+    _username = username
+    _engine = engine
+    _subreddit_name = subreddit_name
 
   be print_all_data() =>
     var result: String = "Username: " + _username + "\n"
@@ -38,24 +35,6 @@ actor Client
 
     _env.out.print(result)
 
-    // _env.out.print("Username: " + _username)
-    // _env.out.print("Direct messages: ")
-    // for key in _dirMsgs.values() do
-    //   _env.out.print(key)
-    // end
-    // _env.out.print("Direct messages users: ")
-    // for user in _dirMsgsUsers.values() do
-    //   _env.out.print(user)
-    // end
-
-
-  new create(env: Env, simulator: ClientSimulator, username: String, engine: RedditEngine tag) =>
-    _env = env
-    _simulator = simulator
-    _username = username
-    _engine = engine
-    _subreddit_name = subreddit_name
-
   fun keyBuilder(user1: String, user2: String): String =>
     if user1 < user2 then
       return user1 + user2
@@ -72,7 +51,6 @@ actor Client
   be login_result(success: Bool, username: String) =>
     if success then
       _env.out.print("Welcome back, " + username + "!")
-      // create_subreddit(_subreddit_name)
     else
       _env.out.print("Username doesn't exist!")
       register()
@@ -82,7 +60,7 @@ actor Client
     if success then
       _env.out.print("Welcome, " + username + "!")
       // _simulator.subreddit_created(_subreddit_name)
-      create_subreddit(_subreddit_name)
+      // create_subreddit(_subreddit_name) *** moving to after DM's created and printed
     else
       _env.out.print("Username already in use! "+ username)
       register()
@@ -122,19 +100,6 @@ actor Client
       // _simulator.increment_totalJobs1()
     end
     _simulator.update_direct_messages_jobCount(0.5)
-
-  // send DM - not used
-  // be send_direct_message(otherUser: String, content: String) =>
-  //   // Check if conversation exists and get
-  //   var conversation: Conversation = Conversation(_env, _username, otherUser) // Dummy conversation
-  //   let key: String = conversation.keyBuilder(_username, otherUser)
-
-  //   if _dirMsgs.contains(key) then
-  //     // Send message to engine
-  //     _engine.update_conversation(content, _username, otherUser, key, this)
-  //   else
-  //     _env.out.print("<send_direct_message>No conversation exists with " + key)
-  //   end
 
   be send_direct_message_Key(key: String, recieverUser: String, content: String) =>
     if has(_dirMsgs, key) then  // _dirMsgs.contains(key)
@@ -204,8 +169,8 @@ actor Client
     end
     false
 
-  be create_subreddit(subreddit_name: String val) =>
-    _engine.create_subreddit(this, subreddit_name, _username)
+  be create_subreddit() =>
+    _engine.create_subreddit(this, _subreddit_name, _username)
 
   be subreddit_creation_result(success: Bool, subreddit_name: String, subscriber_count: USize) =>
     if success then
@@ -236,48 +201,16 @@ actor Client
 
   
 
-  // just writing them down, these behaviors and their logic in the backend still needs to be implemented
+  // Next Steps Layout -
 
-  // be create_subreddit(subreddit_name: String) =>
-  //   _engine.create_subreddit(_username, subreddit_name)
+  // 1. Leave subreddits
+  // 2. Each user post in every subreddit subscribed to
+  // 3. Comment under a post - user makes N comments under random posts/comments
+  // 4. Upvote/Downvote posts and comments - user upvotes/downvotes N random posts/comments
+  // 5. Compute Karama - tally upvotes - downvotes on a post/comment and assign value to post/comment author
+  // 6. Get feed - get all posts from all subreddits subscribed to
+  // 7. Performace metrics - time taken to perform all actions
 
-  // be join_subreddit(subreddit_name: String) =>
-  //   _engine.join_subreddit(_username, subreddit_name)
-    
-  // be leave_subreddit(subreddit_name: String) =>
-  //   _engine.leave_subreddit(_username, subreddit_name)
-
-  // be post_in_subreddit(subreddit_name: String, content: String) =>
-  //   _engine.post_in_subreddit(_username, subreddit_name, content)
-
-  // be comment_on_post(post_id: U64, content: String) =>
-  //   _engine.comment_on_post(_username, post_id, content)
-
-  // be comment_on_comment(comment_id: U64, content: String) =>
-  //   _engine.comment_on_comment(_username, comment_id, content)
-
-  // be upvote_post(post_id: U64) =>
-  //   _engine.upvote_post(_username, post_id)
-
-  // be downvote_post(post_id: U64) =>
-  //   _engine.downvote_post(_username, post_id)
-
-  // be upvote_comment(comment_id: U64) =>
-  //   _engine.upvote_comment(_username, comment_id)
-
-  // be downvote_comment(comment_id: U64) =>
-  //   _engine.downvote_comment(_username, comment_id)
-
-  // be get_feed() =>
-  //   _engine.get_feed(_username)
-
-  // be get_direct_messages() =>
-  //   _engine.get_direct_messages(_username)
-
-  // be send_direct_message(recipient: String, content: String) =>
-  //   _engine.send_direct_message(_username, recipient, content)
-
-  // more methods might need to be added based on simulation logic
 
 actor ClientSimulator
   let _env: Env
@@ -295,19 +228,16 @@ actor ClientSimulator
     _engine = engine
     _numDirMsgs = numDirMsgs
     _num_Clients = num_clients
-    // _engine.set_simulator(this)
 
     // Step 1: Register all clients
     for i in Range(0, num_clients) do
 
       let username: String = "user" + i.string()
-      let client: Client = Client(_env, this, username, _engine)
       let subreddit_name: String val = recover val "subreddit_" + (i+1).string() end
+      let client: Client = Client(_env, this, username, _engine, subreddit_name)
       client.start()
       _clients.push(client)
     end
-
-    // run_direct_message_simulation()
 
   // Step 1 Check: Register all clients
   be update_registration_jobCount() =>
@@ -322,7 +252,7 @@ actor ClientSimulator
 
   be subreddit_created() =>
     _created_subreddits = _created_subreddits + 1
-    if _created_subreddits == _total_clients then
+    if _created_subreddits == _num_Clients then
       //_env.out.print("All subreddits created. Starting join process.")
       _all_subreddits_created = true
       start_joining_subreddits()
@@ -331,7 +261,7 @@ actor ClientSimulator
     be start_joining_subreddits() =>
       if _all_subreddits_created then
         for (i, client) in _clients.pairs() do
-          for j in Range(0, _total_clients) do
+          for j in Range(0, _num_Clients) do
             if i != j then
               let subreddit_to_join: String val = recover val "subreddit_" + (j + 1).string() end
               client.check_and_join_subreddit(subreddit_to_join)
@@ -425,6 +355,14 @@ actor ClientSimulator
       // _env.out.print("All dummy messages sent")
       // _env.out.print("jobsDone Counter set to: " + _jobsDone.string())
       _engine.print_all_data()
+      // Create all subreddits
+      create_subreddits()
+    end
+
+  be create_subreddits() =>
+    // _env.out.print("CREATING AND JOINING SUBREDDITS") - isnt printing after engine.print_all_data()
+    for client in _clients.values() do
+      client.create_subreddit()
     end
 
   be increment_totalJobs1() =>
@@ -441,22 +379,9 @@ actor ClientSimulator
       client.print_all_dirMsgs()
     end
 
-  // be subreddit_created(subreddit_name: String) =>
-  //   _subreddits.set(subreddit_name)
-
-  // be get_existing_subreddits(client: Client tag) =>
-  //   let subreddits_val: Array[String] val = recover val
-  //     let temp = Array[String]
-  //     for subreddit in _subreddits.values() do
-  //       temp.push(subreddit)
-  //     end
-  //     temp
-  //   end
-  //   client.receive_existing_subreddits(subreddits_val)
-
 actor Main
   new create(env: Env) =>
     let engine = RedditEngine(env)
-    let simulator = ClientSimulator(env, 20, engine, 3)
+    let simulator = ClientSimulator(env, 20, engine, 2) // add new parameter for number of comments to random posts/post-comment
     simulator.start_joining_subreddits()
     // engine.print_usernames()
