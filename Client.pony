@@ -7,10 +7,14 @@ actor Client
   let _simulator: ClientSimulator
   let _username: String
   let _engine: RedditEngine tag
+
   let _dirMsgs: Array[String] = Array[String]
   let _dirMsgsUsers: Array[String] = Array[String]
-  let _subscriptions: Set[String] = Set[String]
-  var _subreddit_name: String val
+
+  let _subscriptions: Set[String] = Set[String] // subreddits subscribed to
+  var _subreddit_name: String val // user's subreddit - each user only has 1 subreddit and joining other >1 number of subreddits
+
+  var karma: USize = 0 // karma points for all authored posts and comments
 
   new create(env: Env, simulator: ClientSimulator, username: String, engine: RedditEngine tag, subreddit_name: String) =>
     _env = env
@@ -202,14 +206,25 @@ actor Client
   
 
   // Next Steps Layout -
+  
+/*
 
-  // 1. Leave subreddits
-  // 2. Each user post in every subreddit subscribed to
-  // 3. Comment under a post - user makes N comments under random posts/comments
-  // 4. Upvote/Downvote posts and comments - user upvotes/downvotes N random posts/comments
-  // 5. Compute Karama - tally upvotes - downvotes on a post/comment and assign value to post/comment author
-  // 6. Get feed - get all posts from all subreddits subscribed to
-  // 7. Performace metrics - time taken to perform all actions
+  1. Leave subreddits - Client query engine to leave "_engine.leave_subreddit(subreddit_name: String)"
+  2. Each user post in every subreddit subscribed to - for each subreddit subscribed to, user calls "_engine.post(subreddit_name: String, content: String)" (generates post in subreddit)
+  3. Comment under a post - user makes a comment under a posts/comments - "_engine.comment(subreddit_name: String, content: String)" - engine will randomize post/comment to comment under
+  4. Upvote/Downvote posts and comments - user upvotes/downvotes N(simulate multiple at simulator) random posts/comments - "_engine.upvote(subreddit_name: String)" - engine will randomize post/comment to upvote/downvote
+  5. Compute Karama - tally upvotes - downvotes on a post/comment and assign value to post/comment author - "_engine.compute_karma(subreddit_name: String)" - call this after entire simulation is done
+     engine will iterate through al posts/comments and compute karama and update a map of user -> karma. Then iterate through all users and update their karma. - "client(karma: Usize)"
+  6. Get feed - get all posts from all subreddits subscribed to - "client.get_feed()"(called from simulator - iterate through all clients and call this method) -
+     client will call "_engine.get_feed(subreddit_name: String)" for each subreddit subscribed to and print feed to terminal.
+  7. Performace metrics - time taken to perform all actions
+     done later...
+
+*/
+
+  /*
+    Every task needs returning result from engine. To know when task is complete.
+  */
 
 
 actor ClientSimulator

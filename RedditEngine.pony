@@ -40,11 +40,11 @@ class ref Conversation
 //   let _replies: Array[Comment] = Array[Comment]
 //   let voteCount: I64 = 0
 
-// class Post
-//   let _author: String // username
-//   let _postMessage: String
-//   let _comments: Array[Comment] = Array[Comment]
-//   let voteCount: I64 = 0
+class Post
+  let _author: String // username
+  let _postMessage: String
+  let _comments: Array[Comment] = Array[Comment]
+  let voteCount: I64 = 0 - karma
 
 actor RedditEngine
   let _env: Env
@@ -56,8 +56,11 @@ actor RedditEngine
 
   // let _subreddits: Map[String, Array[Post]] = Map[String, Array[Post]] // Username, Posts
   let _subscribers: Map[String, Array[String]] = Map[String, Array[String]] // Subreddit, Subscribers
-  let _subreddits: Map[String, Array[String]] = Map[String, Array[String]]
-  let _subreddit_subscribers: Map[String, USize] = Map[String, USize]
+
+  let _sub: Map[String, Array[Post]] = Map[String, Array[Post]]  // Key: Subreddit name, Value: [Post]
+
+  let _subreddits: Map[String, Array[String]] = Map[String, Array[String]]  // rename: "subreddit_subscribers" // Key: Subreddit name, Value: [userNames of subscribers]
+  let _subreddit_subscribers: Map[String, USize] = Map[String, USize] // rename: "subreddit_subcriber_count" // Key: Subreddit name, Value: Number of subscribers
 
   be print_all_data() =>
     var result: String = "Usernames: \n"
