@@ -46,6 +46,13 @@ class ref Comment
     _author = author
     _commentMessage = commentMessage
 
+  fun getFullComment_String(): String =>
+    var result: String = "\nComment Author: " + _author + "\n Message: " + _commentMessage + "\nVotes: " + voteCount.string()
+    for reply in _replies.values() do
+      result = reply.getFullComment_String()
+    end
+    result
+
   fun getAuthor(): String =>
     _author
 
@@ -61,6 +68,13 @@ class Post
   new create(author: String, postMessage: String) =>
     _author = author
     _postMessage = postMessage
+
+  fun getFullPost_String(): String =>
+    var result: String = "\nSubreddit Author: " + _author + "\n Message: " + _postMessage + "\nVotes: " + _voteCount.string()
+    for comment in _comments.values() do
+      result = comment.getFullComment_String()
+    end
+    result
 
   fun ref pushComment(comment: Comment) =>
     _comments.push(comment)
@@ -119,6 +133,15 @@ actor RedditEngine
   new create(env: Env) =>
     _env = env
 
+  // Subsitute for contains() method of Array[String]
+  fun has(lis: Array[String], target: String): Bool =>
+    for s in lis.values() do
+      if s == target then
+        return true
+      end
+    end
+    false
+
   be check_username(client: Client tag, username: String) =>
     if _usernames.contains(username) then
       client.login_result(true, username)
@@ -142,6 +165,8 @@ actor RedditEngine
         _subreddit_subcribers(subreddit_name)?.push(creator)
         _subreddit_subcriber_count(subreddit_name) = 1
         _subreddits(subreddit_name) = Array[Post]
+        _subscribers(subreddit_name) = Array[String]
+        _subscribers(subreddit_name)?.push(creator)
         
         if _accounts.contains(creator) then
           let user_client = _accounts(creator)?
@@ -229,6 +254,8 @@ actor RedditEngine
             let user_client = _accounts(username)?
             user_client.update_subscriptions(subreddit_name)
           end
+
+          _subscribers(subreddit_name)?.push(username)
           
           _env.out.print(username + " joined '" + subreddit_name + "'. Total subscribers: " + subscriber_count.string())
           client.join_subreddit_result(true, subreddit_name, subscriber_count)
@@ -351,8 +378,28 @@ actor RedditEngine
       _env.out.print("Error computing karma")
     end
 
-  // be get_feed(client: Client tag) =>
-  //   for post in _subreddit_subcribers.values() do
-  //     client.display_post(post)
-  //   end
+  be get_client_feed(client: Client tag, username: String) =>
+    try
+      var feed: String = "**" + username + "'s feed**: \n\n"
+
+      // _env.out.print("size of _subscribers: " + _subscribers.size().string())
+      for pair in _subscribers.pairs() do
+        // _env.out.print("Checking " + pair._1 + " for " + username + " in ")
+        if has(pair._2, username) then
+          let subreddit_name: String = pair._1
+          let posts = _subreddits(subreddit_name)?
+          for post in posts.values() do
+            feed = feed + post.getFullPost_String()
+          end
+          _env.out.print(feed)
+          client.feed_result()
+          // _env.out.print("GOINING")
+        else
+          _env.out.print("<get_client_feed>User not subscribed to any subreddit")
+        end
+      end
+    else
+      _env.out.print("Error getting client feed")
+    end
+    _env.out.print("End of feed")
 

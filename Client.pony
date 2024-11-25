@@ -251,6 +251,22 @@ actor Client
     _karma = karma
     _simulator.update_karma_jobCount()
 
+  // be print_feed() =>
+  //   let subscriptions: Array[String val] val = Array[String]
+  //   for sub in _subscriptions.values() do
+  //     subscriptions.push(sub)
+  //   end
+
+  //   _engine.get_client_feed(this, subscriptions)
+
+  be print_feed() =>
+
+    _engine.get_client_feed(this, _username)
+
+  be feed_result() =>
+    _simulator.feed_jobDone()
+
+
   
 
   // Next Steps Layout -
@@ -516,6 +532,22 @@ actor ClientSimulator
       _jobsDone = 0
       _env.out.print("All clients karma computed")
       _env.out.print("jobsDone Counter set to: " + _jobsDone.string())
+      print_feeds()
+    end
+
+  be print_feeds() =>
+    _env.out.print("PRINTING FEEDS")
+    for client in _clients.values() do
+      client.print_feed()
+    end
+
+  be feed_jobDone() =>
+    _jobsDone = _jobsDone + 1
+    if _jobsDone == _num_Clients.f64() then
+      _env.out.print("JobsDone: " + _jobsDone.string())
+      _jobsDone = 0
+      _env.out.print("All feeds printed")
+      _env.out.print("jobsDone Counter set to: " + _jobsDone.string())
     end
 
   be increment_totalJobs1() =>
@@ -535,6 +567,6 @@ actor ClientSimulator
 actor Main
   new create(env: Env) =>
     let engine = RedditEngine(env)
-    let simulator = ClientSimulator(env, 20, engine, 2) // add new parameter for number of comments to random posts/post-comment
+    let simulator = ClientSimulator(env, 5, engine, 1) // add new parameter for number of comments to random posts/post-comment
     simulator.start_joining_subreddits()
     // engine.print_usernames()
