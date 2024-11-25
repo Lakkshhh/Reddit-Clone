@@ -266,7 +266,18 @@ actor Client
   be feed_result() =>
     _simulator.feed_jobDone()
 
+  be leave_subreddit(subreddit_name: String) =>
+    _engine.leave_subreddit(this, _username, subreddit_name)
 
+  be leave_subreddit_result(success: Bool, subreddit_name: String, subscriber_count: USize) =>
+    if success then
+      _env.out.print(_username + " successfully left subreddit \"" + subreddit_name + "\". Total subscribers: " + subscriber_count.string())
+    else
+      _env.out.print(_username + " failed to leave subreddit \"" + subreddit_name + "\" since he's the administrator.")
+    end
+
+  be remove_subscription(subreddit_name: String) =>
+    _subscriptions.unset(subreddit_name)
   
 
   // Next Steps Layout -
@@ -290,6 +301,40 @@ actor Client
     Every task needs returning result from engine. To know when task is complete.
   */
 
+actor MetricsCollector
+  let _env: Env
+  let _engine: RedditEngine tag
+  let _total_clients: USize
+  let _start_time: I64
+  var _counts_received: USize = 0
+
+  new create(env: Env, engine: RedditEngine tag, total_clients: USize, start_time: I64) =>
+    _env = env
+    _engine = engine
+    _total_clients = total_clients
+    _start_time = start_time
+
+  be collect_metrics() =>
+    let end_time = Time.now()
+    let total_time = end_time._1 - _start_time
+    
+    _env.out.print("\nPerformance Metrics:")
+    _env.out.print("Total time: " + total_time.string() + " seconds")
+    _env.out.print("Number of subreddits created: " + _total_clients.string())
+    _env.out.print("Total users: " + _total_clients.string())
+    _env.out.print("\nFinal subscriber counts:")
+    
+    for i in Range(1, _total_clients + 1) do
+      let subreddit_name = recover val "subreddit_" + i.string() end
+      _engine.get_subscriber_count(subreddit_name, this)
+    end
+
+  be receive_subscriber_count(subreddit_name: String, count: USize) =>
+    _env.out.print(subreddit_name + ": " + count.string())
+    _counts_received = _counts_received + 1
+    if _counts_received == _total_clients then
+      _env.out.print("\nMetrics collection complete.")
+    end
 
 actor ClientSimulator
   let _env: Env
@@ -301,12 +346,14 @@ actor ClientSimulator
   var totalJobs: USize = 0
   var _created_subreddits: USize = 0
   var _all_subreddits_created: Bool = false
+  let _rand: Random
 
   new create(env: Env, num_clients: USize, engine: RedditEngine tag, numDirMsgs: USize) =>
     _env = env
     _engine = engine
     _numDirMsgs = numDirMsgs
     _num_Clients = num_clients
+    _rand = Rand(Time.now()._1.u64(), Time.now()._2.u64())
 
     // DM - Step 1: Register all clients
     for i in Range(0, num_clients) do
@@ -564,9 +611,61 @@ actor ClientSimulator
       client.print_all_dirMsgs()
     end
 
+  be start_leaving_subreddits() =>
+    if _all_subreddits_created then
+      for client in _clients.values() do
+        let subreddits_to_leave = (_num_Clients - 1) / 2  // Half of joined subreddits
+        for _ in Range(0, subreddits_to_leave) do
+          let random_number = _rand.int(_num_Clients.u64()).usize() + 1
+          let subreddit_to_leave: String val = recover val "subreddit_" + random_number.string() end
+          client.leave_subreddit(subreddit_to_leave)
+        end
+      end
+    end
+
 actor Main
   new create(env: Env) =>
+    let start_time = Time.now()._1
     let engine = RedditEngine(env)
-    let simulator = ClientSimulator(env, 5, engine, 1) // add new parameter for number of comments to random posts/post-comment
+    let simulator = ClientSimulator(env, 3, engine, 1) // add new parameter for number of comments to random posts/post-comment
     simulator.start_joining_subreddits()
-    // engine.print_usernames()
+    
+    let timers = Timers
+    let leave_timer = Timer(LeaveNotify(simulator), 1_000_000_000) // 1 second delay
+    timers(consume leave_timer)
+
+    let metrics_timer = Timer(MetricsNotify(env, engine, 3, start_time), 2_000_000_000) // 2 seconds delay
+    timers(consume metrics_timer)
+
+class LeaveNotify is TimerNotify
+  let _simulator: ClientSimulator tag
+
+  new iso create(simulator: ClientSimulator tag) =>
+    _simulator = simulator
+
+  fun ref apply(timer: Timer, count: U64): Bool =>
+    _simulator.start_leaving_subreddits()
+    false
+
+  fun ref cancel(timer: Timer) =>
+    None
+
+class MetricsNotify is TimerNotify
+  let _env: Env
+  let _engine: RedditEngine tag
+  let _total_clients: USize
+  let _start_time: I64
+
+  new iso create(env: Env, engine: RedditEngine tag, total_clients: USize, start_time: I64) =>
+    _env = env
+    _engine = engine
+    _total_clients = total_clients
+    _start_time = start_time
+
+  fun ref apply(timer: Timer, count: U64): Bool =>
+    let collector = MetricsCollector(_env, _engine, _total_clients, _start_time)
+    collector.collect_metrics()
+    false
+
+  fun ref cancel(timer: Timer) =>
+    None
