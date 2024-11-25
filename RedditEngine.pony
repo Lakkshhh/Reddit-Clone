@@ -56,12 +56,11 @@ actor RedditEngine
   // var _simulator: ClientSimulator tag
   let _usernames: Array[String] = Array[String]
   let _accounts: Map[String, Client] = Map[String, Client]
-  // let _subreddits: Map[String, Array[Post]] = Map[String, Array[Post]] // Username, Posts
-  let _subscribers: Map[String, Array[String]] = Map[String, Array[String]] // Subreddit, Subscribers
-  let _subreddits: Map[String, Array[String]] = Map[String, Array[String]]
-  let _subreddit_subscribers: Map[String, USize] = Map[String, USize]
 
   let _direct_messages: Map[String, Conversation ref] = Map[String, Conversation] // authorUser+otherUser, Direct Messages
+
+  // let _subreddits: Map[String, Array[Post]] = Map[String, Array[Post]] // Username, Posts
+  let _subscribers: Map[String, Array[String]] = Map[String, Array[String]] // Subreddit, Subscribers
   let _subreddits: Map[String, Array[String]] = Map[String, Array[String]]
   let _subreddit_subscribers: Map[String, USize] = Map[String, USize]
 
@@ -87,11 +86,6 @@ actor RedditEngine
 
   new create(env: Env) =>
     _env = env
-    // _simulator = None // Use a valid default // dummy simulator
-
-  // fun set_simulator(simulator: ClientSimulator tag) =>
-  //   _env.out.print("Setting simulator in engine")
-  //   _simulator = simulator
 
   be check_username(client: Client tag, username: String) =>
     if _usernames.contains(username) then
