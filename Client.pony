@@ -19,6 +19,8 @@ actor Client
   let _engine: RedditEngine tag
   let _dirMsgs: Array[String] = Array[String]
   let _dirMsgsUsers: Array[String] = Array[String]
+  let _subscriptions: Set[String] = Set[String]
+  var _subreddit_name: String val
 
   be print_all_data() =>
     var result: String = "Username: " + _username + "\n"
@@ -52,7 +54,7 @@ actor Client
     _simulator = simulator
     _username = username
     _engine = engine
-    // _subreddit_name = subreddit_name
+    _subreddit_name = subreddit_name
 
   fun keyBuilder(user1: String, user2: String): String =>
     if user1 < user2 then
@@ -80,9 +82,10 @@ actor Client
     if success then
       _env.out.print("Welcome, " + username + "!")
       // _simulator.subreddit_created(_subreddit_name)
-      // create_subreddit(_subreddit_name)
+      create_subreddit(_subreddit_name)
     else
       _env.out.print("Username already in use! "+ username)
+      register()
     end
     _simulator.update_registration_jobCount()
 
@@ -206,10 +209,30 @@ actor Client
 
   be subreddit_creation_result(success: Bool, subreddit_name: String, subscriber_count: USize) =>
     if success then
-      _env.out.print("Sub-reddit \"" + subreddit_name + "\" created successfully! Total subscribers: " + subscriber_count.string())
+      _simulator.subreddit_created()  // Notifying the simulator
     else
       _env.out.print("Sub-reddit \"" + subreddit_name + "\" already exists!")
     end
+
+  be join_subreddit_result(success: Bool, subreddit_name: String, subscriber_count: USize) =>
+    None
+
+  be check_and_join_subreddit(subreddit_name: String) =>
+    if not _subscriptions.contains(subreddit_name) then
+      _engine.join_subreddit(this, _username, subreddit_name)
+    end
+
+  be update_subscriptions(subreddit_name: String) =>
+    _subscriptions.set(subreddit_name)
+
+  be print_subscriptions() =>
+    _env.out.print(_username + "'s subscriptions:")
+    for subscription in _subscriptions.values() do
+      _env.out.print("- " + subscription)
+    end
+
+  be join_subreddit(subreddit_name: String) =>
+    _engine.join_subreddit(this, _username, subreddit_name)
 
   
 
@@ -264,6 +287,8 @@ actor ClientSimulator
   var _jobsDone: F64 = 0
   let _num_Clients: USize
   var totalJobs: USize = 0
+  var _created_subreddits: USize = 0
+  var _all_subreddits_created: Bool = false
 
   new create(env: Env, num_clients: USize, engine: RedditEngine tag, numDirMsgs: USize) =>
     _env = env
@@ -294,6 +319,26 @@ actor ClientSimulator
       _env.out.print("jobsDone Counter set to: " + _jobsDone.string())
       create_direct_messages()
     end
+
+  be subreddit_created() =>
+    _created_subreddits = _created_subreddits + 1
+    if _created_subreddits == _total_clients then
+      //_env.out.print("All subreddits created. Starting join process.")
+      _all_subreddits_created = true
+      start_joining_subreddits()
+    end
+
+    be start_joining_subreddits() =>
+      if _all_subreddits_created then
+        for (i, client) in _clients.pairs() do
+          for j in Range(0, _total_clients) do
+            if i != j then
+              let subreddit_to_join: String val = recover val "subreddit_" + (j + 1).string() end
+              client.check_and_join_subreddit(subreddit_to_join)
+            end
+          end
+        end
+      end
 
   // Step 2: Create direct messages
   be create_direct_messages() =>
@@ -413,7 +458,5 @@ actor Main
   new create(env: Env) =>
     let engine = RedditEngine(env)
     let simulator = ClientSimulator(env, 20, engine, 3)
+    simulator.start_joining_subreddits()
     // engine.print_usernames()
-
-
-
