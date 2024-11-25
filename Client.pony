@@ -279,7 +279,7 @@ actor Client
   [DONE] 4. Upvote/Downvote posts and comments - user upvotes/downvotes N(simulate multiple at simulator) random posts/comments - "_engine.upvote(subreddit_name: String)" - engine will randomize post/comment to upvote/downvote
   [DONE] 5. Compute Karama - tally upvotes - downvotes on a post/comment and assign value to post/comment author - "_engine.compute_karma(subreddit_name: String)" - call this after entire simulation is done
      engine will iterate through al posts/comments and compute karama and update a map of user -> karma. Then iterate through all users and update their karma. - "client(karma: Usize)"
-  6. Get feed - get all posts from all subreddits subscribed to - "client.get_feed()"(called from simulator - iterate through all clients and call this method) -
+  [DONE] 6. Get feed - get all posts from all subreddits subscribed to - "client.get_feed()"(called from simulator - iterate through all clients and call this method) -
      client will call "_engine.get_feed(subreddit_name: String)" for each subreddit subscribed to and print feed to terminal.
   7. Performace metrics - time taken to perform all actions
      done later...
@@ -568,5 +568,5 @@ actor Main
   new create(env: Env) =>
     let engine = RedditEngine(env)
     let simulator = ClientSimulator(env, 5, engine, 1) // add new parameter for number of comments to random posts/post-comment
-    simulator.start_joining_subreddits()
+    // simulator.start_joining_subreddits()
     // engine.print_usernames()

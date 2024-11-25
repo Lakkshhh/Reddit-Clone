@@ -379,8 +379,8 @@ actor RedditEngine
     end
 
   be get_client_feed(client: Client tag, username: String) =>
+    var feed: String = "\n\n**" + username + "'s feed**: \n\n"
     try
-      var feed: String = "**" + username + "'s feed**: \n\n"
 
       // _env.out.print("size of _subscribers: " + _subscribers.size().string())
       for pair in _subscribers.pairs() do
@@ -388,11 +388,10 @@ actor RedditEngine
         if has(pair._2, username) then
           let subreddit_name: String = pair._1
           let posts = _subreddits(subreddit_name)?
+          feed = feed + "\n\n - Subreddit: " + subreddit_name + " - \n"
           for post in posts.values() do
             feed = feed + post.getFullPost_String()
           end
-          _env.out.print(feed)
-          client.feed_result()
           // _env.out.print("GOINING")
         else
           _env.out.print("<get_client_feed>User not subscribed to any subreddit")
@@ -401,5 +400,7 @@ actor RedditEngine
     else
       _env.out.print("Error getting client feed")
     end
+    _env.out.print(feed)
+    client.feed_result()
     _env.out.print("End of feed")
 
