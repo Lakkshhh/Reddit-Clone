@@ -158,6 +158,10 @@ actor RedditEngine
       client.registration_result(false, username)
     end
 
+  be get_subscriber_count(subreddit_name: String, collector: MetricsCollector tag) =>
+    let count = _subreddit_subcriber_count.get_or_else(subreddit_name, 0)
+    collector.receive_subscriber_count(subreddit_name, count)
+
   be create_subreddit(client: Client tag, subreddit_name: String val, creator: String) =>
     if not _subreddit_subcribers.contains(subreddit_name) then
       try
@@ -332,6 +336,17 @@ actor RedditEngine
         let posts = _subreddits(subreddit_name)?
         let postIndex: U64 = get_randome_index(posts.size().u32())
         let post = posts(postIndex.usize())?
+        // TODO: Randomize upvote or downvote
+        let upvote: Bool = randomTorF()
+        if upvote then
+          post.incrementVote() // upvote
+          _env.out.print(username + " upvoted a post in '" + subreddit_name + "'")
+
+        else
+          _env.out.print(username + " downvote a post in '" + subreddit_name + "'")
+          post.decrementVote() // downvote
+        end
+
         post.incrementVote() // only upvoting + 1
         _env.out.print(username + " upvoted a post in '" + subreddit_name + "'")
         client.upvote_downvote_result(true, subreddit_name)
@@ -343,6 +358,28 @@ actor RedditEngine
       _env.out.print("<RedditEngine.client_upvote Final>Upvote failed in '" + subreddit_name + "'")
       client.upvote_downvote_result(false, subreddit_name)
     end
+
+  fun randomTorF(): Bool =>
+    // return random True or False
+    let current_time = Time.now()
+    let seed1: U64 = current_time._2.u64()  // nanoseconds
+    let seed2: U64 = current_time._1.u64()  // seconds
+
+    let rng = Rand(seed1, seed2)
+
+    
+    let value: U64 = rng.next()
+    let zeroOne: U64 = value % 11
+
+    _env.out.print("rng: " + value.string() + " zeroOne: " + zeroOne.string())
+
+    if zeroOne > 5 then
+      return false
+    else
+      return true
+    end
+
+
 
   be compute_karma() =>
     let karmas: Map[String, I64] = Map[String, I64] // username, karma
@@ -404,3 +441,27 @@ actor RedditEngine
     client.feed_result()
     _env.out.print("End of feed")
 
+
+  be leave_subreddit(client: Client tag, username: String, subreddit_name: String) =>
+    if _subreddit_subcribers.contains(subreddit_name) then
+      try
+        let subscribers = _subreddit_subcribers(subreddit_name)?
+        let index = subscribers.find(username)?
+        subscribers.delete(index)?
+        _subreddit_subcribers(subreddit_name) = subscribers
+        
+        let subscriber_count = _subreddit_subcriber_count.get_or_else(subreddit_name, 1) - 1
+        _subreddit_subcriber_count(subreddit_name) = subscriber_count
+        
+        if _accounts.contains(username) then
+          let user_client = _accounts(username)?
+          user_client.remove_subscription(subreddit_name)
+        end
+  
+        client.leave_subreddit_result(true, subreddit_name, subscriber_count)
+      else
+        client.leave_subreddit_result(false, subreddit_name, _subreddit_subcriber_count.get_or_else(subreddit_name, 0))
+      end
+    else
+      client.leave_subreddit_result(false, subreddit_name, 0)
+    end
