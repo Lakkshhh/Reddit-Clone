@@ -741,14 +741,14 @@ actor Main
   new create(env: Env) =>
     let start_time = Time.now()._1
     let engine = RedditEngine(env)
-    let simulator = ClientSimulator(env, 10, engine, 1)
+    let simulator = ClientSimulator(env, 5, engine, 1)
     simulator.start_joining_subreddits()
 
     let timers = Timers
     let leave_timer = Timer(LeaveNotify(simulator), 1_000_000_000) // 1 second delay
     timers(consume leave_timer)
 
-    let metrics_timer = Timer(MetricsNotify(env, engine, 10, start_time, simulator), 2_000_000_000) // 2 seconds delay
+    let metrics_timer = Timer(MetricsNotify(env, engine, 5, start_time, simulator), 2_000_000_000) // 2 seconds delay
     timers(consume metrics_timer)
 
 class LeaveNotify is TimerNotify
