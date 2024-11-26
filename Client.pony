@@ -302,6 +302,36 @@ actor Client
     Every task needs returning result from engine. To know when task is complete.
   */
 
+actor CustomTimer
+  let _env: Env
+  let _name: String
+  var _start: U64
+  var _end: U64
+
+  new create(env: Env, name: String) =>
+    _env = env
+    _name = name
+    _start = 0
+    _end = 0
+
+  be start() =>
+    _start = Time.micros()
+
+  be stop() =>
+    _end = Time.micros()
+
+  be print_time() =>
+    let elapsed: U64 = _end - _start
+    let seconds: U64 = elapsed / 1_000_000
+    let remaining_micros: U64 = elapsed % 1_000_000
+    let milliseconds: U64 = remaining_micros / 1_000
+    let nanoseconds: U64 = (remaining_micros % 1_000) * 1_000
+
+    _env.out.print(_name + " time: " + 
+      seconds.string() + " seconds, " +
+      milliseconds.string() + " milliseconds, " +
+      nanoseconds.string() + " nanoseconds")
+
 actor MetricsCollector
   let _env: Env
   let _engine: RedditEngine tag
@@ -315,22 +345,46 @@ actor MetricsCollector
     _total_clients = total_clients
     _start_time = start_time
 
-  be collect_metrics() =>
+  be collect_metrics(timers: Map[String, CustomTimer tag] val) =>
     let end_time = Time.now()
     let total_time = end_time._1 - _start_time
     
-    _env.out.print("\nPerformance Metrics:")
+    _env.out.print("\nPerformance Metrics:\n")
     _env.out.print("Total time: " + total_time.string() + " seconds")
     _env.out.print("Number of subreddits created: " + _total_clients.string())
     _env.out.print("Total users: " + _total_clients.string())
-    _env.out.print("\nFinal subscriber counts:")
+
+    let timer_order = [
+      "Registration"
+      "Direct Messages"
+      "Subreddit Creation"
+      "Joining Subreddits"
+      "Posting"
+      "Commenting"
+      "Upvote/Downvote"
+      "Karma Calculation"
+      "Get Feed"
+      "Leaving Subreddits"
+    ]
+
+    for name in timer_order.values() do
+      try
+        timers(name)?.print_time()
+      else
+        _env.out.print("Timer '" + name + "' not found")
+      end
+    end
     
+    _env.out.print("")
     for i in Range(1, _total_clients + 1) do
       let subreddit_name = recover val "subreddit_" + i.string() end
       _engine.get_subscriber_count(subreddit_name, this)
     end
 
   be receive_subscriber_count(subreddit_name: String, count: USize) =>
+    if _counts_received == 0 then
+      _env.out.print("\nFinal subscriber counts:")
+    end
     _env.out.print(subreddit_name + ": " + count.string())
     _counts_received = _counts_received + 1
     if _counts_received == _total_clients then
@@ -348,6 +402,18 @@ actor ClientSimulator
   var _created_subreddits: USize = 0
   var _all_subreddits_created: Bool = false
   let _rand: Random
+  let _timers: Map[String, CustomTimer tag] val
+
+  let _registration_timer: CustomTimer
+  let _direct_messages_timer: CustomTimer
+  let _subreddit_creation_timer: CustomTimer
+  let _joining_timer: CustomTimer
+  let _posting_timer: CustomTimer
+  let _commenting_timer: CustomTimer
+  let _upvote_downvote_timer: CustomTimer
+  let _karma_timer: CustomTimer
+  let _get_feed_timer: CustomTimer
+  let _leaving_timer: CustomTimer
 
   new create(env: Env, num_clients: USize, engine: RedditEngine tag, numDirMsgs: USize) =>
     _env = env
@@ -355,8 +421,33 @@ actor ClientSimulator
     _numDirMsgs = numDirMsgs
     _num_Clients = num_clients
     _rand = Rand(Time.now()._1.u64(), Time.now()._2.u64())
+    let timers = recover trn Map[String, CustomTimer tag] end
+
+    _registration_timer = CustomTimer(_env, "Registration")
+    _direct_messages_timer = CustomTimer(_env, "Direct Messages")
+    _subreddit_creation_timer = CustomTimer(_env, "Subreddit Creation")
+    _joining_timer = CustomTimer(_env, "Joining Subreddits")
+    _posting_timer = CustomTimer(_env, "Posting")
+    _commenting_timer = CustomTimer(_env, "Commenting")
+    _upvote_downvote_timer = CustomTimer(_env, "Upvote/Downvote")
+    _karma_timer = CustomTimer(_env, "Karma Calculation")
+    _get_feed_timer = CustomTimer(_env, "Get Feed")
+    _leaving_timer = CustomTimer(_env, "Leaving Subreddits")
+
+    timers("Registration") = _registration_timer
+    timers("Direct Messages") = _direct_messages_timer
+    timers("Subreddit Creation") = _subreddit_creation_timer
+    timers("Joining Subreddits") = _joining_timer
+    timers("Posting") = _posting_timer
+    timers("Commenting") = _commenting_timer
+    timers("Upvote/Downvote") = _upvote_downvote_timer
+    timers("Karma Calculation") = _karma_timer
+    timers("Get Feed") = _get_feed_timer
+    timers("Leaving Subreddits") = _leaving_timer 
+    _timers = consume timers
 
     // DM - Step 1: Register all clients
+    _registration_timer.start()
     for i in Range(0, num_clients) do
 
       let username: String = "user" + i.string()
@@ -373,6 +464,7 @@ actor ClientSimulator
     if _jobsDone == _clients.size().f64() then
       _jobsDone = 0
       _env.out.print("All clients registered")
+      _registration_timer.stop()
       _env.out.print("jobsDone Counter set to: " + _jobsDone.string())
       create_direct_messages()
     end
@@ -380,6 +472,7 @@ actor ClientSimulator
   // DM - Step 2: Create direct messages
   be create_direct_messages() =>
     // simulation logic needs to be added
+    _direct_messages_timer.start()
     _env.out.print("CREATING DIRECT MESSAGES")
     try
       for i in Range(0, _clients.size()) do
@@ -408,6 +501,7 @@ actor ClientSimulator
     if _jobsDone == total.f64() then
       _jobsDone = 0
       _env.out.print("All direct messages created")
+      _direct_messages_timer.stop()
       _env.out.print("jobsDone Counter set to: " + _jobsDone.string())
       send_dummy_messages()
     end
@@ -469,6 +563,7 @@ actor ClientSimulator
 
   // Subreddit - Step 1: Create subreddits
   be create_subreddits() =>
+    _subreddit_creation_timer.start()
     // _env.out.print("CREATING AND JOINING SUBREDDITS") - isnt printing after engine.print_all_data()
     for client in _clients.values() do
       client.create_subreddit()
@@ -480,11 +575,13 @@ actor ClientSimulator
     if _created_subreddits == _num_Clients then
       //_env.out.print("All subreddits created. Starting join process.")
       _all_subreddits_created = true
+      _subreddit_creation_timer.stop()
       start_joining_subreddits()
     end
 
   // Subreddit - Step 2: Join subreddits
   be start_joining_subreddits() =>
+    _joining_timer.start()
     if _all_subreddits_created then
       for (i, client) in _clients.pairs() do
         for j in Range(0, _num_Clients) do
@@ -504,6 +601,7 @@ actor ClientSimulator
       _jobsDone = 0
       totalJobs = 0
       _env.out.print("All clients joined subreddits")
+      _joining_timer.stop()
       _env.out.print("jobsDone Counter set to: " + _jobsDone.string())
       _env.out.print("totalJobs Counter set to: " + totalJobs.string())
       post_every_subreddit()
@@ -511,6 +609,7 @@ actor ClientSimulator
 
   // Subreddit - Step 3: Post in every subreddit
   be post_every_subreddit() =>
+    _posting_timer.start()
     for client in _clients.values() do
       client.post_every_subreddit()
     end
@@ -523,6 +622,7 @@ actor ClientSimulator
       _jobsDone = 0
       totalJobs = 0
       _env.out.print("All clients posted in subreddits")
+      _posting_timer.stop()
       _env.out.print("jobsDone Counter set to: " + _jobsDone.string())
       _env.out.print("totalJobs Counter set to: " + totalJobs.string())
       make_comments()
@@ -530,6 +630,7 @@ actor ClientSimulator
 
   // Subreddit - Step 4: Make comments
   be make_comments() =>
+    _commenting_timer.start()
     _env.out.print("MAKING COMMENTS")
     for client in _clients.values() do
       client.make_comments()
@@ -543,6 +644,7 @@ actor ClientSimulator
       _jobsDone = 0
       totalJobs = 0
       _env.out.print("All clients commented in subreddits")
+      _commenting_timer.stop()
       _env.out.print("jobsDone Counter set to: " + _jobsDone.string())
       _env.out.print("totalJobs Counter set to: " + totalJobs.string())
       upvote_downvote()
@@ -550,6 +652,7 @@ actor ClientSimulator
 
   // Subreddit - Step 5: Upvote/Downvote posts and comments
   be upvote_downvote() =>
+    _upvote_downvote_timer.start()
     _env.out.print("UPVOTING/DOWNVOTING")
     for client in _clients.values() do
       client.upvote_downvote()
@@ -563,6 +666,7 @@ actor ClientSimulator
       _jobsDone = 0
       totalJobs = 0
       _env.out.print("All clients upvoted/downvoted in subreddits")
+      _upvote_downvote_timer.stop()
       _env.out.print("jobsDone Counter set to: " + _jobsDone.string())
       _env.out.print("totalJobs Counter set to: " + totalJobs.string())
 
@@ -570,6 +674,7 @@ actor ClientSimulator
     end
 
   be compute_karama() =>
+    _karma_timer.start()
     _env.out.print("COMPUTING KARMA")
     _engine.compute_karma()
 
@@ -579,11 +684,13 @@ actor ClientSimulator
       _env.out.print("JobsDone: " + _jobsDone.string())
       _jobsDone = 0
       _env.out.print("All clients karma computed")
+      _karma_timer.stop()
       _env.out.print("jobsDone Counter set to: " + _jobsDone.string())
       print_feeds()
     end
 
   be print_feeds() =>
+    _get_feed_timer.start()
     _env.out.print("PRINTING FEEDS")
     for client in _clients.values() do
       client.print_feed()
@@ -595,6 +702,7 @@ actor ClientSimulator
       _env.out.print("JobsDone: " + _jobsDone.string())
       _jobsDone = 0
       _env.out.print("All feeds printed")
+      _get_feed_timer.stop()
       _env.out.print("jobsDone Counter set to: " + _jobsDone.string())
     end
 
@@ -613,6 +721,7 @@ actor ClientSimulator
     end
 
   be start_leaving_subreddits() =>
+    _leaving_timer.start()
     if _all_subreddits_created then
       for client in _clients.values() do
         let subreddits_to_leave = (_num_Clients - 1) / 2  // Half of joined subreddits
@@ -622,19 +731,24 @@ actor ClientSimulator
           client.leave_subreddit(subreddit_to_leave)
         end
       end
+      _leaving_timer.start()
     end
+
+  be print_performance_metrics(collector: MetricsCollector tag) =>
+    collector.collect_metrics(_timers)
 
 actor Main
   new create(env: Env) =>
     let start_time = Time.now()._1
     let engine = RedditEngine(env)
-    let simulator = ClientSimulator(env, 3, engine, 1) // add new parameter for number of comments to random posts/post-comment
-    
+    let simulator = ClientSimulator(env, 10, engine, 1)
+    simulator.start_joining_subreddits()
+
     let timers = Timers
     let leave_timer = Timer(LeaveNotify(simulator), 1_000_000_000) // 1 second delay
     timers(consume leave_timer)
 
-    let metrics_timer = Timer(MetricsNotify(env, engine, 3, start_time), 2_000_000_000) // 2 seconds delay
+    let metrics_timer = Timer(MetricsNotify(env, engine, 10, start_time, simulator), 2_000_000_000) // 2 seconds delay
     timers(consume metrics_timer)
 
 class LeaveNotify is TimerNotify
@@ -647,24 +761,23 @@ class LeaveNotify is TimerNotify
     _simulator.start_leaving_subreddits()
     false
 
-  fun ref cancel(timer: Timer) =>
-    None
-
 class MetricsNotify is TimerNotify
   let _env: Env
   let _engine: RedditEngine tag
   let _total_clients: USize
   let _start_time: I64
+  let _simulator: ClientSimulator tag
 
-  new iso create(env: Env, engine: RedditEngine tag, total_clients: USize, start_time: I64) =>
+  new iso create(env: Env, engine: RedditEngine tag, total_clients: USize, start_time: I64, simulator: ClientSimulator tag) =>
     _env = env
     _engine = engine
     _total_clients = total_clients
     _start_time = start_time
+    _simulator = simulator
 
   fun ref apply(timer: Timer, count: U64): Bool =>
     let collector = MetricsCollector(_env, _engine, _total_clients, _start_time)
-    collector.collect_metrics()
+    _simulator.print_performance_metrics(collector)
     false
 
   fun ref cancel(timer: Timer) =>
