@@ -355,7 +355,7 @@ actor MetricsCollector
     _env.out.print("\nPerformance Metrics:\n")
     _env.out.print("Total time: " + total_time.string() + " seconds")
     _env.out.print("Number of subreddits created: " + _total_clients.string())
-    _env.out.print("Total users: " + _total_clients.string())
+    _env.out.print("Total users: " + _total_clients.string() + "\n")
 
     let timer_order = [
       "Registration"
@@ -378,7 +378,7 @@ actor MetricsCollector
       end
     end
     
-    _env.out.print("")
+    //_env.out.print("")
     for i in Range(1, _total_clients + 1) do
       let subreddit_name = recover val "subreddit_" + i.string() end
       _engine.get_subscriber_count(subreddit_name, this)
@@ -755,7 +755,7 @@ actor Main
   new create(env: Env) =>
     let start_time = Time.now()._1
     let engine = RedditEngine(env)
-    let num_clients: USize = 100
+    let num_clients: USize = 10
     let simulator = ClientSimulator(env, num_clients, engine, 1)
     //simulator.start_joining_subreddits()
 
