@@ -449,15 +449,12 @@ actor RedditEngine
         let index = subscribers.find(username)?
         subscribers.delete(index)?
         _subreddit_subcribers(subreddit_name) = subscribers
-        
         let subscriber_count = _subreddit_subcriber_count.get_or_else(subreddit_name, 1) - 1
         _subreddit_subcriber_count(subreddit_name) = subscriber_count
-        
         if _accounts.contains(username) then
           let user_client = _accounts(username)?
           user_client.remove_subscription(subreddit_name)
         end
-  
         client.leave_subreddit_result(true, subreddit_name, subscriber_count)
       else
         client.leave_subreddit_result(false, subreddit_name, _subreddit_subcriber_count.get_or_else(subreddit_name, 0))
@@ -465,3 +462,4 @@ actor RedditEngine
     else
       client.leave_subreddit_result(false, subreddit_name, 0)
     end
+    client.leave_subreddit_complete()
