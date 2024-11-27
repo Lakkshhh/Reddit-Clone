@@ -75,7 +75,6 @@ actor Client
   be start_conversation(otherUser: String) =>
     let conversation = Conversation(_env, _username, otherUser)
     let key: String = conversation.keyBuilder(_username, otherUser)
-
     // _env.out.print("Starting conversation with " + otherUser + " from " + _username + " Key builder: " + key)
 
     if _dirMsgs.contains(key) then
@@ -84,11 +83,9 @@ actor Client
     else
       // _env.out.print("Starting conversation with " + otherUser)
       // _env.out.print("Key: " + key)
-
       // removed for concurrency - will be handled by engine using accept_conversation()
       // _dirMsgsUsers.push(otherUser)
       // _dirMsgs.push(key)
-
       _engine.start_conversation(_username, otherUser, key, this)
     end
 
@@ -252,14 +249,6 @@ actor Client
     _karma = karma
     _simulator.update_karma_jobCount()
 
-  // be print_feed() =>
-  //   let subscriptions: Array[String val] val = Array[String]
-  //   for sub in _subscriptions.values() do
-  //     subscriptions.push(sub)
-  //   end
-
-  //   _engine.get_client_feed(this, subscriptions)
-
   be print_feed() =>
 
     _engine.get_client_feed(this, _username)
@@ -282,28 +271,6 @@ actor Client
 
   be leave_subreddit_complete() =>
     _simulator.leave_subreddit_complete()
-  
-
-  // Next Steps Layout -
-
-/*
-
-  [DONE] 1. Leave subreddits - Client query engine to leave "_engine.leave_subreddit(subreddit_name: String)"
-  [DONE] 2. Each user post in every subreddit subscribed to - for each subreddit subscribed to, user calls "_engine.post(subreddit_name: String, _username: String, content: String)" (generates post in subreddit)
-  [DONE] 3. only posts not comments 3. Comment under a post - user makes a comment under a posts/comments for each subreddit - "_engine.comment(subreddit_name: String, content: String)" - engine will randomize post/comment to comment under
-  [DONE] - Randomize increment/decrement vote (Only voting on posts I believe) 4. Upvote/Downvote posts and comments - user upvotes/downvotes N(simulate multiple at simulator) random posts/comments - "_engine.upvote(subreddit_name: String)" - engine will randomize post/comment to upvote/downvote
-  [DONE] 5. Compute Karama - tally upvotes - downvotes on a post/comment and assign value to post/comment author - "_engine.compute_karma(subreddit_name: String)" - call this after entire simulation is done
-     engine will iterate through al posts/comments and compute karama and update a map of user -> karma. Then iterate through all users and update their karma. - "client(karma: Usize)"
-  [DONE] 6. Get feed - get all posts from all subreddits subscribed to - "client.get_feed()"(called from simulator - iterate through all clients and call this method) -
-     client will call "_engine.get_feed(subreddit_name: String)" for each subreddit subscribed to and print feed to terminal.
-  [DONE] - Adding timer at each step 7. Performace metrics - time taken to perform all actions
-     done later...
-
-*/
-
-  /*
-    Every task needs returning result from engine. To know when task is complete.
-  */
 
 actor CustomTimer
   let _env: Env
@@ -757,43 +724,4 @@ actor Main
     let engine = RedditEngine(env)
     let num_clients: USize = 10
     let simulator = ClientSimulator(env, num_clients, engine, 1)
-    //simulator.start_joining_subreddits()
 
-//     let timers = Timers
-//     let leave_timer = Timer(LeaveNotify(simulator), 1_000_000_000) // 1 second delay
-//     timers(consume leave_timer)
-
-//     let metrics_timer = Timer(MetricsNotify(env, engine, num_clients, start_time, simulator), 2_000_000_000) // 2 seconds delay
-//     timers(consume metrics_timer)
-
-// class LeaveNotify is TimerNotify
-//   let _simulator: ClientSimulator tag
-
-//   new iso create(simulator: ClientSimulator tag) =>
-//     _simulator = simulator
-
-//   fun ref apply(timer: Timer, count: U64): Bool =>
-//     _simulator.start_leaving_subreddits()
-//     false
-
-// class MetricsNotify is TimerNotify
-//   let _env: Env
-//   let _engine: RedditEngine tag
-//   let _total_clients: USize
-//   let _start_time: I64
-//   let _simulator: ClientSimulator tag
-
-//   new iso create(env: Env, engine: RedditEngine tag, total_clients: USize, start_time: I64, simulator: ClientSimulator tag) =>
-//     _env = env
-//     _engine = engine
-//     _total_clients = total_clients
-//     _start_time = start_time
-//     _simulator = simulator
-
-//   fun ref apply(timer: Timer, count: U64): Bool =>
-//     let collector = MetricsCollector(_env, _engine, _total_clients, _start_time)
-//     _simulator.print_performance_metrics(collector)
-//     false
-
-//   fun ref cancel(timer: Timer) =>
-//     None
