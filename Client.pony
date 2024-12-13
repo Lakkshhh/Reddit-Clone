@@ -718,10 +718,126 @@ actor ClientSimulator
     let collector = MetricsCollector(_env, _engine, _num_Clients, _start_time)
     collector.collect_metrics(_timers)
 
+class ServerClientSim
+  var _client_1: Client
+  var _client_2: Client
+  let _name: String
+  let firstSim: ClientSimulator
+  let _engine: RedditEngine
+  let _env: Env
+
+
+
+  new create(n: String, engine: RedditEngine, sim: ClientSimulator, env: Env) =>
+    _name = n
+    firstSim = sim
+    _engine = engine
+    _env = env
+
+    _client_1 = Client(_env, firstSim, "user_1", _engine, "subredit_1")
+    _client_2 = Client(_env, firstSim, "user_2", _engine, "subreddit_2")
+    
+
+  fun createUser1() =>
+    let username1: String = "user_1"
+    let subreddit_name1: String val = "subreddit_1"
+    // _client_1 = Client(_env, firstSim, username1, _engine, subreddit_name1)  // Client1
+
+
+  fun createUser2() => 
+    let username2: String = "user_2"
+    let subreddit_name2: String = "subreddit_2"
+    // _client_2 = Client(_env, firstSim, username2, _engine, subreddit_name2)  // Client2
+
+  fun registerUsers() =>
+    _client_1.register()
+    _client_2.register()
+
+  fun createDM() =>
+    _client_2.start_conversation("user_1")
+
+  fun user1SendDM(msg: String) =>
+    _client_1.send_direct_message_Key("user_1user_2", "user2", msg)
+
+  fun printDMs() =>
+    _client_1.print_all_dirMsgs()
+
+  fun user1CreateSub() =>
+    _client_1.create_subreddit()
+
+  fun user2CreateSub() =>
+    _client_2.create_subreddit()
+
+  fun client1Post() =>
+    _client_1.post_every_subreddit()
+
+  fun client2Post() =>
+    _client_2.post_every_subreddit()
+
+  fun showPosts() =>
+    _client_1.print_feed()
+    _client_2.print_feed()
+
+  fun run() =>
+    createUser1()
+    createUser2()
+
+    registerUsers() // registering User 1 and 2
+
+    createDM()
+
+    // user1SendDM("Hi there!")
+    printDMs()
+
+    user1CreateSub()
+    user2CreateSub()
+
+    client1Post()
+    client2Post()
+
+    showPosts()
+
+
 actor Main
   new create(env: Env) =>
-    let start_time = Time.now()._1
-    let engine = RedditEngine(env)
-    let num_clients: USize = 10
-    let simulator = ClientSimulator(env, num_clients, engine, 1)
+    // let start_time = Time.now()._1
+    // let engine = RedditEngine(env)
+    // let num_clients: USize = 10
+    // let simulator = ClientSimulator(env, num_clients, engine, 1)
+
+    // Simulate 2 Clients creating Creating subreddits, joining each others subreddit, Posting, Sending DM
+    let engine = RedditEngine(env) // Server
+    let sim = ClientSimulator(env, 0, engine, 0)
+
+    let serverClientSim = ServerClientSim("Simulation", engine, sim, env)
+    serverClientSim.run()
+
+    // serverClientSim.createUser1()
+    // serverClientSim.createUser2()
+
+    // serverClientSim.registerUsers() // registering User 1 and 2
+
+    // serverClientSim.createDM()
+
+    // serverClientSim.user1SendDM("Hi there!")
+    // serverClientSim.printDMs()
+
+
+    // let username1: String = "user_1"
+    // let subreddit_name1: String val = "subreddit_1"
+    // let client1: Client = Client(env, sim, username1, engine, subreddit_name1)  // Client1
+
+    // let username2: String = "user_2"
+    // let subreddit_name2: String = "subreddit_2"
+    // let client2 = Client(env, sim, username2, engine, subreddit_name2)  // Client2
+
+    // let serverClientSim = ServerClientSim("name") 
+
+    // client1.register()
+    // client2.register()
+
+    // client1.start_conversation(username2)
+
+
+    
 
